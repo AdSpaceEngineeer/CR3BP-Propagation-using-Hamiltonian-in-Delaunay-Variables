@@ -1,0 +1,175 @@
+#import packages
+
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+
+#given conditions
+
+a0 = 1
+e0 = 0.5
+i0 = 45*math.pi/180
+t0 = 0
+aop0 = 0 #argument of periapse
+om0 = 0 #right acsension of ascending node
+M0 = 0 #mean anomaly
+mu = 1 #gravitational parameter normalised to unity
+omega = 0.01 #angular speed of the rotating frame
+
+#classic variables to delaunay variables
+
+#function for L. Its conjugate angle variable is l = Mean Anomaly 'M'
+def func_L(a):
+    return (mu*a)**0.5 
+
+#function for G. Its conjugate angle variable is g = Argument of Periapse 'aop' 
+def func_G(L, e):
+    return L*(1-e**2)**0.5 #
+
+#function for H. Its conjugate angle variable is h = RAAN 'om'
+def func_H(G, i):
+    return G*math.cos(i)
+
+
+#equations of motion
+
+#L = L0
+L = func_L(a0)
+
+#G = G0
+G = func_G(L, e0)
+
+#H = H0
+H = func_H(G, i0)
+
+#l = -1/(2L^2)*(t-t0) + l0
+def func_l(L, t, M0):
+    l0 = M0
+    return (-1/(2*L**2))*(t-t0) + l0
+
+#g = g0
+g0 = aop0
+g = g0
+
+#w = - omega*(t-t0) + h0
+def func_h(t, om0):
+    h0 = om0
+    return -omega*(t-t0) + h0
+    
+
+#delaunay variables to classic variables
+
+def func_a(L):
+    return L**2/mu
+
+def func_e(L, G):
+    if G>L: return np.nan
+    return (1-G**2/L**2)**0.5
+
+def func_i(H, G):
+    if H>G: return np.nan
+    return math.acos(H/G)
+
+# aop = g, raan = h, M = l
+
+
+#Mean anomaly to Eccentric anomaly
+def M_to_Eccen(M, e, tol = 1e-10, n=20): 
+    i = 0
+    delta = 1
+    Ei = (M + e/2) if M < math.pi else (M - e/2)
+    while abs(delta)>tol and i<=n:
+        delta = (Ei - e*math.sin(Ei) - M)/(1-e*math.cos(Ei))
+        Ei = Ei - delta
+        i+=1
+    return Ei   
+
+#Eccentric anomaly to true anomaly
+def Eccen_to_f(E, e): 
+    return 2*math.atan((np.sqrt((1+e)/(1-e)))*math.tan(E/2))
+    
+
+#converting orbital elements to position and velocity vectors
+    
+def r_scal_using_a(a, e, f):
+    return a*(1-e**2)/(1+e*math.cos(f))
+
+def r_vec_peri(r_scal, f):
+    return r_scal*np.array([math.cos(f), math.sin(f), 0])
+
+#def v_vec_peri(h, e, f):
+    #return (mu/h)*np.array([-math.sin(f), e+math.cos(f), 0])
+
+def R3_w(w):
+    return np.array([[math.cos(w), math.sin(w), 0],[-math.sin(w), math.cos(w), 0],[0,0,1]])
+
+def R1_i(i):
+    return np.array([[1,0,0],[0, math.cos(i), math.sin(i)],[0, -math.sin(i), math.cos(i)]])
+
+def R3_om(om):
+    return np.array([[math.cos(om), math.sin(om), 0],[-math.sin(om), math.cos(om), 0],[0,0,1]])
+
+def peri_to_geo_cosmatrix(R3w, R1i, R3om):
+    n = np.matmul(R3w, R1i)
+    cosmat_geo_to_peri = np.matmul(n, R3om)
+    cosmat_peri_to_geo = cosmat_geo_to_peri.transpose()
+    return cosmat_peri_to_geo 
+
+def r_geo_vec(cosmat_peri_to_geo, r_vec_peri):
+    return np.matmul(cosmat_peri_to_geo, r_vec_peri)
+
+
+r_vec_array = []
+
+for t in range(100):
+    
+    #L, G, H and g are constants over time; defined above under equations of motion 
+    l = func_l(L, t, M0)
+    h = func_h(t, om0)
+    
+    a = func_a(L)
+    e = func_e(L, G)
+    i = func_i(H, G)
+    om = h
+    aop = g 
+    M = l
+    
+    E = M_to_Eccen(M, e)
+    f = Eccen_to_f(E, e)
+    
+    r_scal = r_scal_using_a(a, e, f)
+    r_peri = r_vec_peri(r_scal, f)
+    R3w = R3_w(aop)
+    R1i = R1_i(i)
+    R3om = R3_om(om)
+    
+    cosmat_peri_to_geo  = peri_to_geo_cosmatrix(R3w, R1i, R3om)
+    
+    r_vec = r_geo_vec(cosmat_peri_to_geo, r_peri)
+    
+    r_vec_t = r_vec.tolist()
+    
+    r_vec_array.append(r_vec_t)
+    
+    
+#plot propagated orbit using a color map to show propagated orbit
+rxs = r_vec_array[:,0]
+rys = r_vec_array[:,1]
+rzs = r_vec_array[:,2]
+cmap = ['blue', 'green', 'yellow', 'orange', 'red']
+
+fig1, axs1 = plt.subplots(figsize = (15,15))
+axs1 = plt.axes(projection = '3d')
+c=0
+for i in range(0,101,20):
+    axs1.plot(rxs[i:i+21], rys[i:i+21], rzs[i:i+21], color = cmap[c])
+    c=c+1
+axs1.view_init(0,0)
+axs1.plot(rxs, rys, rzs)
+axs1.set_xlabel('X/km')
+axs1.set_ylabel('Y/km')
+axs1.set_zlabel('Z/km')
+axs1.set_title('CR3BP Propagated with Hamiltoninan in Delaunay Variables')
+plt.show()
+
+
