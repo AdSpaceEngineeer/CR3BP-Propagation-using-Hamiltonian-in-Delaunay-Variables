@@ -152,24 +152,28 @@ for t in range(100):
     r_vec_array.append(r_vec_t)
     
     
-#plot propagated orbit using a color map to show propagated orbit
+#plot propagated orbit using a color map to show shift in orbit
 rxs = r_vec_array[:,0]
 rys = r_vec_array[:,1]
 rzs = r_vec_array[:,2]
-cmap = ['blue', 'green', 'yellow', 'orange', 'red']
-
-fig1, axs1 = plt.subplots(figsize = (15,15))
+print(len(rxs), len(rys), len(rzs))
+clrmap = ['blue', 'green', 'yellow', 'orange', 'red']
+fig1, axs1 = plt.subplots(figsize = (10,10))
 axs1 = plt.axes(projection = '3d')
+axs1.view_init(35,30)
+axs1.set_xlabel('X/DU')
+axs1.set_ylabel('Y/DU')
+axs1.set_zlabel('Z/DU')
+axs1.set_title('CR3BP Propagated with Hamiltoninan in Delaunay Variables')
+V = np.array([[0.5,0,0], [0,0.5,0], [0,0,0.5]])
+origin = np.array([[0, 0, 0],[0, 0, 0], [0, 0, 0]]) # origin point
+plt.quiver(*origin, V[:,0], V[:,1], V[:,2], color = 'black', lw = 3)
 c=0
 for i in range(0,101,20):
-    axs1.plot(rxs[i:i+21], rys[i:i+21], rzs[i:i+21], color = cmap[c])
+    axs1.plot(rxs[i:i+21], rys[i:i+21], rzs[i:i+21], color = clrmap[c])
+    print(i, i+21, c)
     c=c+1
-axs1.view_init(0,0)
 axs1.plot(rxs, rys, rzs)
-axs1.set_xlabel('X/km')
-axs1.set_ylabel('Y/km')
-axs1.set_zlabel('Z/km')
-axs1.set_title('CR3BP Propagated with Hamiltoninan in Delaunay Variables')
 plt.show()
 
 
